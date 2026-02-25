@@ -59,18 +59,20 @@ chmod 600 ~/.ssh/authorized_keys
 Desde cualquier máquina con acceso al servidor:
 
 ```bash
-ssh-keyscan -H tu-ip-servidor
+ssh-keyscan -p 5452 -H tu-ip-servidor
 ```
 
 También lo podés hacer entrando por PuTTY al servidor y ejecutando el comando con tu IP real, por ejemplo:
 
 ```bash
-ssh-keyscan -H 179.43.121.178
+ssh-keyscan -p 5452 -H 179.43.121.178
 ```
 
 Para el secret `SSH_KNOWN_HOSTS`, copiar solo las líneas que **no** empiezan con `#` (las líneas de clave, por ejemplo `ecdsa-sha2-nistp256`, `ssh-ed25519`, `ssh-rsa`).
 
 Pegarlas tal cual, en múltiples líneas, dentro del secret `SSH_KNOWN_HOSTS`.
+
+> Si usás un puerto SSH distinto de `22` (ej: `5452`), es obligatorio usar `ssh-keyscan -p <puerto> ...` para que el host quede guardado como `[host]:puerto` y la validación de host key funcione.
 
 ---
 
@@ -83,7 +85,7 @@ Crear estos 7 secrets:
 | Secret | Qué poner | Ejemplo |
 |---|---|---|
 | `SSH_PRIVATE_KEY` | Contenido completo del archivo `github-actions` (la clave privada, incluyendo las líneas `-----BEGIN...` y `-----END...`) | `-----BEGIN OPENSSH PRIVATE KEY-----` ... |
-| `SSH_KNOWN_HOSTS` | Salida completa de `ssh-keyscan -H tu-ip` | `\|1\|abc...= ssh-ed25519 AAAA...` |
+| `SSH_KNOWN_HOSTS` | Salida completa de `ssh-keyscan -p 5452 -H tu-ip` | `\|1\|abc...= ssh-ed25519 AAAA...` |
 | `SSH_USER` | Usuario SSH del VPS | `admin` |
 | `SSH_HOST` | IP o dominio del VPS | `123.45.67.89` |
 | `SSH_PORT` | Puerto SSH del VPS (no siempre es 22) | `5452` |
