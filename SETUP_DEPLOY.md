@@ -1,10 +1,25 @@
-# Setup Deploy PRE/PRO — Pasos manuales
+# Deploy PRE/PRO con GitHub Actions — Guía completa
 
-Todo lo automatizado (workflows, next.config) ya está creado. Este doc cubre lo que tenés que hacer manualmente.
+CI/CD para Next.js estático. Build en GitHub Actions, deploy vía rsync+SSH a un VPS (DonWeb/VestaCP).
+
+- **PRE**: se despliega automáticamente en cada push a `main`
+- **PRO**: se despliega automáticamente en cada tag nuevo
 
 ---
 
-## 1. Generar claves SSH
+## Paso 1 — Configurar Next.js para export estático
+
+En `next.config.ts` debe estar:
+
+```ts
+output: "export"
+```
+
+Esto hace que `npm run build` genere la carpeta `out/` con HTML/CSS/JS estáticos.
+
+---
+
+## Paso 2 — Generar par de claves SSH
 
 Desde tu máquina local:
 
@@ -12,145 +27,143 @@ Desde tu máquina local:
 ssh-keygen -t ed25519 -C "github-actions" -f github-actions
 ```
 
-Cuando te pida `Enter passphrase`, podés dejarla vacía (presionar `Enter` dos veces). Para este flujo de GitHub Actions no es necesario usar passphrase.
+Dejar passphrase vacía (Enter dos veces). Genera dos archivos:
 
-Esto genera:
-- `github-actions` → clave **privada** (va al secret `SSH_PRIVATE_KEY`)
-- `github-actions.pub` → clave **pública** (va al servidor)
+| Archivo | Uso |
+|---|---|
+| `github-actions` | Clave **privada** → va al secret `SSH_PRIVATE_KEY` en GitHub |
+| `github-actions.pub` | Clave **pública** → va al servidor en `~/.ssh/authorized_keys` |
 
-### Agregar la clave pública al VPS
+---
 
-Conectarte al VPS y agregar la clave pública:
+## Paso 3 — Cargar la clave pública en el VPS
 
-```bash
-ssh tu-usuario@tu-ip-servidor
-cat >> ~/.ssh/authorized_keys << 'EOF'
-(pegar contenido de github-actions.pub acá)
-EOF
-chmod 600 ~/.ssh/authorized_keys
+Desde PowerShell (te pide la contraseña del servidor):
+
+```powershell
+Get-Content .\github-actions.pub | ssh -4 -p 5352 root@149.50.143.22 "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && chmod 700 ~/.ssh"
 ```
 
-### Verificar que se creó correctamente
+> Reemplazá `5352`, `root` y `149.50.143.22` por tu puerto, usuario e IP reales.
 
-En la misma sesión SSH, ejecutar:
+### Verificar permisos (opcional)
 
-```bash
-grep "github-actions" ~/.ssh/authorized_keys
-ls -la ~/.ssh
-ls -la ~/.ssh/authorized_keys
-```
-
-Deberías ver:
-- una línea con `github-actions` en `authorized_keys`
-- `~/.ssh` con permisos `700` (drwx------)
-- `~/.ssh/authorized_keys` con permisos `600` (-rw-------)
-
-Si no coincide, corregir con:
+Conectarse al servidor y comprobar:
 
 ```bash
-chmod 700 ~/.ssh
-chmod 600 ~/.ssh/authorized_keys
+grep "github-actions" ~/.ssh/authorized_keys   # debe aparecer la clave
+ls -la ~/.ssh/                                  # debe ser drwx------ (700)
+ls -la ~/.ssh/authorized_keys                   # debe ser -rw------- (600)
 ```
 
 ---
 
-## 2. Obtener SSH_KNOWN_HOSTS
+## Paso 4 — Obtener SSH_KNOWN_HOSTS
 
 Desde cualquier máquina con acceso al servidor:
-
-```bash
-ssh-keyscan -p 5352 -H tu-ip-servidor
-```
-
-También lo podés hacer entrando por PuTTY al servidor y ejecutando el comando con tu IP real, por ejemplo:
 
 ```bash
 ssh-keyscan -p 5352 -H 149.50.143.22
 ```
 
-Para el secret `SSH_KNOWN_HOSTS`, copiar solo las líneas que **no** empiezan con `#` (las líneas de clave, por ejemplo `ecdsa-sha2-nistp256`, `ssh-ed25519`, `ssh-rsa`).
+> **Importante**: si el puerto SSH no es `22`, es obligatorio usar `-p <puerto>` para que el host quede guardado como `[host]:puerto`.
 
-Pegarlas tal cual, en múltiples líneas, dentro del secret `SSH_KNOWN_HOSTS`.
-
-> Si usás un puerto SSH distinto de `22` (ej: `5352`), es obligatorio usar `ssh-keyscan -p <puerto> ...` para que el host quede guardado como `[host]:puerto` y la validación de host key funcione.
+Copiar **toda la salida** (excepto las líneas que empiezan con `#`) y pegarla en el secret `SSH_KNOWN_HOSTS`.
 
 ---
 
-## 3. Configurar Secrets en GitHub
+## Paso 5 — Configurar los 7 Secrets en GitHub
 
-Ir a tu repositorio en GitHub → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
-
-Crear estos 7 secrets:
+Ir al repositorio en GitHub → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
 
 | Secret | Qué poner | Ejemplo |
 |---|---|---|
-| `SSH_PRIVATE_KEY` | Contenido completo del archivo `github-actions` (la clave privada, incluyendo las líneas `-----BEGIN...` y `-----END...`) | `-----BEGIN OPENSSH PRIVATE KEY-----` ... |
-| `SSH_KNOWN_HOSTS` | Salida completa de `ssh-keyscan -p 5352 -H tu-ip` | `\|1\|abc...= ssh-ed25519 AAAA...` |
-| `SSH_USER` | Usuario SSH del VPS | `admin` |
-| `SSH_HOST` | IP o dominio del VPS | `123.45.67.89` |
-| `SSH_PORT` | Puerto SSH del VPS (no siempre es 22) | `5352` |
-| `DEPLOY_PRE_PATH` | Ruta absoluta al `public_html` de PRE (con `/` al final) | `/home/admin/web/pre.midominio.com/public_html/` |
-| `DEPLOY_PRO_PATH` | Ruta absoluta al `public_html` de PRO (con `/` al final) | `/home/admin/web/midominio.com/public_html/` |
+| `SSH_PRIVATE_KEY` | Contenido **completo** del archivo `github-actions` (incluye `-----BEGIN...` y `-----END...`) | — |
+| `SSH_KNOWN_HOSTS` | Salida de `ssh-keyscan -p 5352 -H tu-ip` (paso 4) | — |
+| `SSH_USER` | Usuario SSH del VPS | `root` |
+| `SSH_HOST` | IP pública del VPS (**no** un dominio con proxy Cloudflare) | `149.50.143.22` |
+| `SSH_PORT` | Puerto SSH del VPS | `5352` |
+| `DEPLOY_PRE_PATH` | Ruta absoluta al `public_html` de PRE (con `/` al final) | `/home/root/web/pre.midominio.com/public_html/` |
+| `DEPLOY_PRO_PATH` | Ruta absoluta al `public_html` de PRO (con `/` al final) | `/home/root/web/midominio.com/public_html/` |
 
-> **Importante**: Las rutas en VestaCP suelen ser `/home/USUARIO/web/DOMINIO/public_html/`. Asegurate de poner la `/` al final.
-
-> **Recordá**: Los secrets solo se pueden crear y modificar, nunca ver. Si te equivocás, simplemente actualizá el valor.
-
-> **Nota**: Los workflows además refrescan `known_hosts` en runtime con `ssh-keyscan -p $SSH_PORT -H $SSH_HOST` para evitar errores por mismatch de puerto/host key.
+> Las rutas en VestaCP suelen ser `/home/USUARIO/web/DOMINIO/public_html/`.
 
 ---
 
-## 4. Verificar que funciona
+## Paso 6 — Verificar el deploy
 
-### robots.txt por ambiente (automático)
-
-- En **PRE** el workflow genera `robots.txt` con `Disallow: /`
-- En **PRO** el workflow genera `robots.txt` con `Allow: /`
-
-Esto evita que PRE se indexe y garantiza que `robots.txt` no se pierda aunque el deploy use `rsync --delete`.
-
-### PRE (automático en cada push a main)
+### PRE — push a main
 
 ```bash
 git add .
-git commit -m "setup deploy workflows"
+git commit -m "setup deploy"
 git push origin main
 ```
 
-→ Ir a GitHub → pestaña **Actions** → verificar que el workflow "Deploy to PRE" corre OK.
-→ Abrir `pre.tudominio.com` en el navegador.
+→ GitHub → pestaña **Actions** → verificar que "Deploy to PRE" pasa OK.
 
-### PRO (automático en cada tag nuevo)
+### PRO — crear un tag
 
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
-→ Ir a GitHub → pestaña **Actions** → verificar que "Deploy to PRO" corre OK.
-→ Abrir `tudominio.com` en el navegador.
+→ GitHub → pestaña **Actions** → verificar que "Deploy to PRO" pasa OK.
 
 ---
 
-## 5. Troubleshooting
+## Cómo funciona internamente
 
-| Problema | Solución |
+### Flujo del workflow
+
+1. `actions/checkout@v4` — descarga el código
+2. `actions/setup-node@v4` — instala Node 20
+3. `npm install --legacy-peer-deps` — instala dependencias
+4. Genera `robots.txt` según el ambiente (PRE: `Disallow: /`, PRO: `Allow: /`)
+5. `npm run build` — genera la carpeta `out/`
+6. `shimataro/ssh-key-action@v2` — configura la clave SSH privada en el runner
+7. `ssh-keyscan` — refresca `known_hosts` en runtime con el puerto correcto
+8. `rsync` — sube `out/` al `public_html` del servidor con `--delete`
+
+### robots.txt por ambiente
+
+- **PRE** → `Disallow: /` (evita indexación de buscadores)
+- **PRO** → `Allow: /` (permite indexación)
+
+Se genera automáticamente antes del build. No hace falta tocarlo manualmente.
+
+### Flags de rsync/SSH
+
+| Flag | Por qué |
 |---|---|
-| `Permission denied (publickey)` | La clave pública no está en `authorized_keys` del VPS, o el secret `SSH_PRIVATE_KEY` está mal copiado |
-| `Host key verification failed` | El secret `SSH_KNOWN_HOSTS` está vacío o incorrecto. Regenerar con `ssh-keyscan -H tu-ip` |
-| `ssh: connect to host ... Network is unreachable` | Revisar `SSH_HOST` y `SSH_PORT` (deben ser públicos y correctos). Evitar dominios con proxy (ej. Cloudflare proxied) para SSH y usar IP pública o DNS directo |
-| `ERR_PNPM_FETCH_403` en `pnpm/action-setup` | Usar `npm` en CI para install/build (workflows actuales ya están ajustados a `npm install` + `npm run build`) |
-| `npm ERR! ERESOLVE unable to resolve dependency tree` | En CI usar `npm install --legacy-peer-deps` (workflows actuales ya quedaron así) |
-| `rsync: connection unexpectedly closed` | Verificar que el usuario SSH tenga permisos de escritura en la ruta de deploy |
-| Build falla con `output: export` | Alguna página usa features incompatibles con static export (API routes, `getServerSideProps`, etc.) |
-| `out/` está vacío | Verificar que `next.config.ts` tenga `output: "export"` |
+| `-4` | Fuerza IPv4 (los runners de GitHub a veces fallan con IPv6) |
+| `-p $SSH_PORT` | Puerto SSH personalizado |
+| `-o ConnectTimeout=20` | Timeout para no colgar el workflow |
+| `--delete` | Borra archivos viejos que ya no existen en el build |
 
 ---
 
-## Resumen de archivos del sistema de deploy
+## Archivos del sistema de deploy
 
-| Archivo | Para qué |
+| Archivo | Función |
 |---|---|
-| `.github/workflows/deploy-pre.yml` | Workflow: push a main → build → rsync a PRE |
+| `.github/workflows/deploy-pre.yml` | Workflow: push a `main` → build → rsync a PRE |
 | `.github/workflows/deploy-pro.yml` | Workflow: nuevo tag → build → rsync a PRO |
-| `next.config.ts` | Tiene `output: "export"` para generar `out/` |
+| `next.config.ts` | `output: "export"` para generar `out/` |
+| `public/robots.txt` | robots.txt por defecto (se sobreescribe en CI) |
+
+---
+
+## Troubleshooting
+
+| Problema | Causa / Solución |
+|---|---|
+| `Permission denied (publickey)` | La clave pública no está en `authorized_keys` del VPS. Repetir paso 3. También verificar que `SSH_PRIVATE_KEY` esté completo en el secret |
+| `Host key verification failed` | `SSH_KNOWN_HOSTS` incorrecto o generado sin `-p puerto`. Repetir paso 4 |
+| `Network is unreachable` | IP incorrecta en `SSH_HOST`, o el runner intenta IPv6. Verificar la IP y que el workflow use `-4` |
+| `Connection timed out` | Puerto SSH incorrecto en `SSH_PORT`, o firewall bloqueando |
+| `ERESOLVE unable to resolve dependency tree` | Usar `npm install --legacy-peer-deps` (ya configurado en workflows) |
+| `rsync: connection unexpectedly closed` | El usuario SSH no tiene permisos de escritura en la ruta de deploy |
+| Build falla con `output: export` | Alguna página usa features server-only (`getServerSideProps`, API routes, etc.) |
+| `out/` vacío | Verificar que `next.config.ts` tenga `output: "export"` |
