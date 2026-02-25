@@ -96,6 +96,8 @@ Crear estos 7 secrets:
 
 > **Recordá**: Los secrets solo se pueden crear y modificar, nunca ver. Si te equivocás, simplemente actualizá el valor.
 
+> **Nota**: Los workflows además refrescan `known_hosts` en runtime con `ssh-keyscan -p $SSH_PORT -H $SSH_HOST` para evitar errores por mismatch de puerto/host key.
+
 ---
 
 ## 4. Verificar que funciona

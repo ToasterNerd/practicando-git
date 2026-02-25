@@ -36,5 +36,9 @@ jobs:
           name: github-actions
           known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
 
+      - name: Refresh known_hosts for SSH port
+        run: |
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
       - name: Deploy to PRO server
         run: rsync -avz --delete -e "ssh -4 -i ~/.ssh/github-actions -p ${{ secrets.SSH_PORT }} -o ConnectTimeout=20" out/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PRO_PATH }}
