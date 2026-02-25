@@ -65,7 +65,7 @@ ssh-keyscan -p 5352 -H tu-ip-servidor
 También lo podés hacer entrando por PuTTY al servidor y ejecutando el comando con tu IP real, por ejemplo:
 
 ```bash
-ssh-keyscan -p 5352 -H 179.43.121.178
+ssh-keyscan -p 5352 -H 149.50.143.22
 ```
 
 Para el secret `SSH_KNOWN_HOSTS`, copiar solo las líneas que **no** empiezan con `#` (las líneas de clave, por ejemplo `ecdsa-sha2-nistp256`, `ssh-ed25519`, `ssh-rsa`).
