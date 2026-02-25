@@ -138,6 +138,7 @@ git push origin v1.0.0
 | `Host key verification failed` | El secret `SSH_KNOWN_HOSTS` está vacío o incorrecto. Regenerar con `ssh-keyscan -H tu-ip` |
 | `ssh: connect to host ... Network is unreachable` | Revisar `SSH_HOST` y `SSH_PORT` (deben ser públicos y correctos). Evitar dominios con proxy (ej. Cloudflare proxied) para SSH y usar IP pública o DNS directo |
 | `ERR_PNPM_FETCH_403` en `pnpm/action-setup` | Usar `npm` en CI para install/build (workflows actuales ya están ajustados a `npm install` + `npm run build`) |
+| `npm ERR! ERESOLVE unable to resolve dependency tree` | En CI usar `npm install --legacy-peer-deps` (workflows actuales ya quedaron así) |
 | `rsync: connection unexpectedly closed` | Verificar que el usuario SSH tenga permisos de escritura en la ruta de deploy |
 | Build falla con `output: export` | Alguna página usa features incompatibles con static export (API routes, `getServerSideProps`, etc.) |
 | `out/` está vacío | Verificar que `next.config.ts` tenga `output: "export"` |
