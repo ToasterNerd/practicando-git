@@ -42,4 +42,4 @@ jobs:
           known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
 
       - name: Deploy to PRO server
-        run: rsync -avz --delete -e "ssh -i ~/.ssh/github-actions" out/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PRO_PATH }}
+        run: rsync -avz --delete -e "ssh -i ~/.ssh/github-actions -p ${{ secrets.SSH_PORT }}" out/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PRO_PATH }}

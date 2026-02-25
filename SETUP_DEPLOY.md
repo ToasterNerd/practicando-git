@@ -78,7 +78,7 @@ Pegarlas tal cual, en múltiples líneas, dentro del secret `SSH_KNOWN_HOSTS`.
 
 Ir a tu repositorio en GitHub → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
 
-Crear estos 6 secrets:
+Crear estos 7 secrets:
 
 | Secret | Qué poner | Ejemplo |
 |---|---|---|
@@ -86,6 +86,7 @@ Crear estos 6 secrets:
 | `SSH_KNOWN_HOSTS` | Salida completa de `ssh-keyscan -H tu-ip` | `\|1\|abc...= ssh-ed25519 AAAA...` |
 | `SSH_USER` | Usuario SSH del VPS | `admin` |
 | `SSH_HOST` | IP o dominio del VPS | `123.45.67.89` |
+| `SSH_PORT` | Puerto SSH del VPS (no siempre es 22) | `5452` |
 | `DEPLOY_PRE_PATH` | Ruta absoluta al `public_html` de PRE (con `/` al final) | `/home/admin/web/pre.midominio.com/public_html/` |
 | `DEPLOY_PRO_PATH` | Ruta absoluta al `public_html` de PRO (con `/` al final) | `/home/admin/web/midominio.com/public_html/` |
 
