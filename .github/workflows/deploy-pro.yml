@@ -1,0 +1,45 @@
+name: Deploy to PRO
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  pro-deployment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Set robots.txt for PRO
+        run: |
+          cat > public/robots.txt << 'EOF'
+          User-agent: *
+          Allow: /
+          EOF
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Setup SSH
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          name: github-actions
+          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+
+      - name: Deploy to PRO server
+        run: rsync -avz --delete -e "ssh -i ~/.ssh/github-actions" out/ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PRO_PATH }}
